@@ -1,0 +1,89 @@
+# Ungated bootstrap DaemonSet (PLAN §6, Option b).
+#
+# Loads mock_gpu.ko EARLY so the fake PCI device appears and NFD sets the
+# pci-10de.present gate BEFORE the operator schedules its (gated) driver
+# DaemonSet. This is the SAME image the operator later runs in MODE=driver.
+#
+# This file is an envsubst template; `make deploy-mock` substitutes ${VARS}.
+# Substituted vars: MOCK_NAMESPACE, MOCK_IMAGE, MOCK_GPU_COUNT, MOCK_ENABLE_PCI,
+#                   MOCK_PCI_DOMAIN, MOCK_PCI_BUSNR
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${MOCK_NAMESPACE}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mock-gpu-bootstrap
+  namespace: ${MOCK_NAMESPACE}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: mock-gpu-bootstrap
+  namespace: ${MOCK_NAMESPACE}
+  labels:
+    app: mock-gpu-bootstrap
+spec:
+  selector:
+    matchLabels:
+      app: mock-gpu-bootstrap
+  template:
+    metadata:
+      labels:
+        app: mock-gpu-bootstrap
+    spec:
+      serviceAccountName: mock-gpu-bootstrap
+      hostPID: true
+      # Ungated: run on every linux node, tolerate everything, NO pci-10de gate.
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+        - operator: Exists
+      priorityClassName: system-node-critical
+      containers:
+        - name: bootstrap
+          image: ${MOCK_IMAGE}
+          imagePullPolicy: IfNotPresent
+          args: ["bootstrap"]
+          env:
+            - name: MODE
+              value: "bootstrap"
+            - name: MOCK_GPU_COUNT
+              value: "${MOCK_GPU_COUNT}"
+            - name: NVML_MOCK_GPU_COUNT
+              value: "${MOCK_GPU_COUNT}"
+            - name: MOCK_ENABLE_PCI
+              value: "${MOCK_ENABLE_PCI}"
+            - name: MOCK_PCI_DOMAIN
+              value: "${MOCK_PCI_DOMAIN}"
+            - name: MOCK_PCI_BUSNR
+              value: "${MOCK_PCI_BUSNR}"
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: lib-modules
+              mountPath: /lib/modules
+              readOnly: true
+            - name: usr-src
+              mountPath: /usr/src
+              readOnly: true
+            - name: dev
+              mountPath: /dev
+            - name: sys
+              mountPath: /sys
+      volumes:
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+        - name: usr-src
+          hostPath:
+            path: /usr/src
+        - name: dev
+          hostPath:
+            path: /dev
+        - name: sys
+          hostPath:
+            path: /sys

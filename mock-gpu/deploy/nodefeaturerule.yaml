@@ -1,0 +1,24 @@
+# NodeFeatureRule — robust NFD gate (PLAN §6, §15.1).
+#
+# Sets feature.node.kubernetes.io/pci-10de.present=true on any node where the
+# mock_gpu kernel module is loaded. This guarantees the operator's scheduling
+# gate even if the fake-PCI device is disabled (enable_pci=0) or fails on a given
+# kernel. It is harmless when fake-PCI IS active (NFD would set the same label
+# from the real sysfs device; this just makes it deterministic).
+#
+# Applied by `make deploy-mock` as a belt-and-suspenders safety net.
+apiVersion: nfd.k8s-sigs.io/v1alpha1
+kind: NodeFeatureRule
+metadata:
+  name: mock-gpu-pci-gate
+spec:
+  rules:
+    - name: "mock gpu pci-10de gate"
+      labels:
+        # NFD prefixes these with feature.node.kubernetes.io/ automatically,
+        # yielding feature.node.kubernetes.io/pci-10de.present=true.
+        "pci-10de.present": "true"
+      matchFeatures:
+        - feature: kernel.loadedmodule
+          matchExpressions:
+            mock_gpu: { op: Exists }

@@ -1,0 +1,21 @@
+# kind cluster config for the mock GPU harness (PLAN §12).
+#
+# Single node. The node container shares the HOST kernel, so the module loaded
+# by the bootstrap DaemonSet affects the host kernel and the fake PCI device is
+# visible in the kernel-global /sys/bus/pci. extraMounts expose the host kernel
+# headers/modules into the node.
+#
+# E2E NOTE: cross-boundary device-node visibility (/dev/nvidia*) and driver-root
+# propagation are the items most likely to need adjustment in your snapshot env;
+# see docs/TESTING.md §3 and README.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    extraMounts:
+      - hostPath: /lib/modules
+        containerPath: /lib/modules
+        readOnly: true
+      - hostPath: /usr/src
+        containerPath: /usr/src
+        readOnly: true

@@ -1,0 +1,78 @@
+# GPU Operator Helm values for the mock GPU (PLAN §3, §11).
+#
+# envsubst template; `make deploy-operator` substitutes ${VARS}:
+#   DRIVER_REPOSITORY DRIVER_IMAGE_NAME DRIVER_VERSION
+#   VALIDATOR_SHIM_REPO VALIDATOR_SHIM_IMAGE_NAME VALIDATOR_SHIM_TAG
+#
+# Strategy: we ARE the driver image (toolkit injects our mock NVML from the
+# driver root). Everything that needs real hardware/CUDA is disabled or stubbed.
+
+# NFD detects the fake PCI device and applies the pci-10de.present gate.
+nfd:
+  enabled: true
+
+cdi:
+  enabled: true
+  default: false
+
+# We supply our own mock driver image (single image, MODE=driver).
+driver:
+  enabled: true
+  usePrecompiled: false
+  repository: ${DRIVER_REPOSITORY}
+  image: ${DRIVER_IMAGE_NAME}
+  version: "${DRIVER_VERSION}"
+  imagePullPolicy: IfNotPresent
+  # NOTE (E2E): the k8s-driver-manager initContainer unloads real nvidia modules
+  # before the driver starts. It must NOT unload our mock_gpu module (different
+  # name) — verify behaviour against the pinned operator version.
+
+# Required: the toolkit injects the mock libnvidia-ml.so.1 into GFD/device-plugin.
+toolkit:
+  enabled: true
+
+devicePlugin:
+  enabled: true
+
+gfd:
+  enabled: true
+
+# Replace the validator with a no-op so all validations pass (the real cuda
+# validation runs a CUDA workload that cannot work on the mock). See PLAN §15.3.
+validator:
+  repository: ${VALIDATOR_SHIM_REPO}
+  image: ${VALIDATOR_SHIM_IMAGE_NAME}
+  version: "${VALIDATOR_SHIM_TAG}"
+  imagePullPolicy: IfNotPresent
+
+# Tesla T4 has no MIG.
+mig:
+  strategy: none
+
+# Everything below needs real hardware / is unnecessary for the mock.
+dcgm:
+  enabled: false
+dcgmExporter:
+  enabled: false
+migManager:
+  enabled: false
+nodeStatusExporter:
+  enabled: false
+gds:
+  enabled: false
+gdrcopy:
+  enabled: false
+vgpuManager:
+  enabled: false
+vgpuDeviceManager:
+  enabled: false
+vfioManager:
+  enabled: false
+sandboxDevicePlugin:
+  enabled: false
+sandboxWorkloads:
+  enabled: false
+kataManager:
+  enabled: false
+ccManager:
+  enabled: false

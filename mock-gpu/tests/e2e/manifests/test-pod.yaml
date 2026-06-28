@@ -1,0 +1,24 @@
+# E2E test workload (TESTING.md §3.1 step 8): proves a pod requesting a GPU
+# schedules onto the mock node. It does NO GPU work — it just needs to be
+# admitted and run, confirming the device-plugin advertised allocatable
+# nvidia.com/gpu and the scheduler placed it.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mock-gpu-test
+  namespace: default
+  labels:
+    app: mock-gpu-test
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: busybox:stable
+      command: ["sh", "-c", "echo 'scheduled on mock GPU node'; nvidia-smi -L 2>/dev/null || true; sleep 5"]
+      resources:
+        limits:
+          nvidia.com/gpu: 1
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule

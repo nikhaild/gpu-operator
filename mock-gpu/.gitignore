@@ -1,0 +1,26 @@
+# Build outputs
+/build/
+
+# kbuild out-of-tree artifacts (left in kmod/ during a build)
+kmod/*.o
+kmod/*.ko
+kmod/*.mod
+kmod/*.mod.c
+kmod/.*.cmd
+kmod/*.symvers
+kmod/*.order
+kmod/.tmp_versions/
+
+# Unit test outputs
+tests/unit/_out/
+
+# Functional test scratch
+tests/functional/nvml_runtime/out.json
+tests/functional/nvml_runtime/err.log
+tests/functional/nvml_runtime/go.sum
+
+# E2E diagnostics
+tests/_artifacts/
+
+# Rendered manifests
+*.rendered.yaml

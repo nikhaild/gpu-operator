@@ -1,0 +1,53 @@
+# FALLBACK NVML injection via Kyverno (PLAN §16) — NOT used by the primary
+# driver-image design (where the toolkit injects the mock NVML from the driver
+# root). Keep for the case where the driver-image contract proves too version-
+# fragile on a given operator release.
+#
+# Prerequisite if you switch to this path: a DaemonSet must drop the mock
+# libnvidia-ml.so.1 onto each node at /opt/mock-nvml/libnvidia-ml.so.1, and the
+# operator's toolkit can be disabled (toolkit.enabled=false) since injection then
+# happens here at the Pod layer instead.
+#
+# Requires Kyverno installed (KYVERNO_CHART_VERSION in versions.mk).
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mock-nvml-inject
+  annotations:
+    policies.kyverno.io/description: >-
+      Inject the mock libnvidia-ml.so.1 into GFD / device-plugin pods via a
+      hostPath volume + LD_LIBRARY_PATH, independent of the GFD image version.
+spec:
+  background: false
+  rules:
+    - name: inject-mock-nvml
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces: ["gpu-operator"]
+              selector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    # NOTE: confirm these labels against the pinned operator version.
+                    values:
+                      - gpu-feature-discovery
+                      - nvidia-device-plugin-daemonset
+      mutate:
+        patchStrategicMerge:
+          spec:
+            volumes:
+              - name: mock-nvml
+                hostPath:
+                  path: /opt/mock-nvml
+                  type: Directory
+            containers:
+              - (name): "*"
+                env:
+                  - name: LD_LIBRARY_PATH
+                    value: /opt/mock-nvml
+                volumeMounts:
+                  - name: mock-nvml
+                    mountPath: /opt/mock-nvml
+                    readOnly: true
